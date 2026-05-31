@@ -1,36 +1,18 @@
 package db
 
 import (
-	"context"
-	"fmt"
-	"os"
-
-	"github.com/jackc/pgx/v5/pgxpool"
+	"time"
 )
 
-// Pool is the shared database connection pool.
-// A pool manages multiple connections automatically — you don't
-// open and close individual connections yourself.
-var Pool *pgxpool.Pool
-
-// Connect reads the database URL from an environment variable and
-// opens a connection pool. Call this once at startup.
-func Connect() error {
-	url := os.Getenv("DATABASE_URL")
-	if url == "" {
-		url = "postgres://taskflow:taskflow@localhost:5432/taskflow"
-	}
-
-	pool, err := pgxpool.New(context.Background(), url)
-	if err != nil {
-		return fmt.Errorf("could not connect to database: %w", err)
-	}
-
-	// Ping to confirm the connection actually works
-	if err := pool.Ping(context.Background()); err != nil {
-		return fmt.Errorf("database unreachable: %w", err)
-	}
-
-	Pool = pool
-	return nil
+type Job struct {
+    ID int64 `db:"id"` 
+    Status string `db:"status"`
+    Payload []byte `db:"payload"`
+    CreatedAt time.Time `db:"created_at"`
+    FinishedAt *time.Time `db:"finished_at"`
+    ErrorMessage *string `db:"error_message"`
+    Result *string `db:"result"`
+    SubmittedBy string `db:"submitted_by"`
+    JobType string `db:"job_type"`
 }
+
