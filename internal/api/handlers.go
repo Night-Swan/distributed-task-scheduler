@@ -6,6 +6,7 @@ import (
 	"github.com/Night-Swan/distributed-task-scheduler/internal/db"
 	"github.com/Night-Swan/distributed-task-scheduler/internal/jobs"
 	"strconv"	
+	"encoding/json"
 )
 
 type CreateJobRequest struct {
@@ -31,7 +32,13 @@ func (h *Handler) CreateJob(c *gin.Context) {
         return
     }
 	
-	jobID, err := db.CreateJob(req.SubmittedBy, req.JobType, []byte(req.Prompt))
+	payload, err := json.Marshal(map[string]string{"prompt": req.Prompt})
+	if err != nil {
+		c.JSON(500, gin.H{"error": "Failed to marshal payload"})
+		return
+	}
+	jobID, err := db.CreateJob(req.SubmittedBy, req.JobType, payload)
+
 	if err != nil {
 		c.JSON(500, gin.H{"error": "Failed to create job"})
 		return

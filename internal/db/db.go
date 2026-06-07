@@ -11,19 +11,29 @@ import (
 var Pool *pgxpool.Pool
 
 func Connect() error {
-    url := os.Getenv("DATABASE_URL")
-    if url == "" {
-        return fmt.Errorf("DATABASE_URL environment variable not set")
-    }
-    var err error
-    Pool, err = pgxpool.New(context.Background(), url)
-    if err != nil {
-        return fmt.Errorf("could not create pool: %w", err)
-    }
-    if err := Pool.Ping(context.Background()); err != nil {
-        return fmt.Errorf("database unreachable: %w", err)
-    }
-    return nil
+	url := os.Getenv("DATABASE_URL")
+	if url == "" {
+		return fmt.Errorf("DATABASE_URL environment variable not set")
+	}
+
+	config, err := pgxpool.ParseConfig(url)
+	if err != nil {
+		return fmt.Errorf("could not parse config: %w", err)
+	}
+
+	config.ConnConfig.TLSConfig = nil
+
+	var poolErr error
+	Pool, poolErr = pgxpool.NewWithConfig(context.Background(), config)
+	if poolErr != nil {
+		return fmt.Errorf("could not create pool: %w", poolErr)
+	}
+
+	if err := Pool.Ping(context.Background()); err != nil {
+		return fmt.Errorf("database unreachable: %w", err)
+	}
+
+	return nil
 }
 
 type Job struct {
@@ -39,13 +49,17 @@ type Job struct {
 }
 
 func CreateJob(submittedBy string, jobType string, payload []byte) (int64, error) {
-    var id int64
-    err := Pool.QueryRow(context.Background(), `
-    INSERT INTO jobs (job_type, payload, submitted_by)
-    VALUES ($1, $2, $3)
-    RETURNING id
-    `, jobType, payload, submittedBy).Scan(&id)
-    return id, err
+	var id int64
+	err := Pool.QueryRow(context.Background(), `
+		INSERT INTO jobs (job_type, payload, submitted_by)
+		VALUES ($1, $2, $3)
+		RETURNING id
+	`, jobType, payload, submittedBy).Scan(&id)
+	if err != nil {
+		fmt.Println("CreateJob error:", err)
+		return 0, err
+	}
+	return id, nil
 }
 
 func GetJob(id int64) (*Job, error) {
