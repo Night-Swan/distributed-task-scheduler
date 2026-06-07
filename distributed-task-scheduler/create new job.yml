@@ -1,0 +1,23 @@
+info:
+  name: create new job
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: http://localhost:8080/jobs
+  body:
+    type: json
+    data: |-
+      {
+          "job_type": "llm_prompt",
+          "prompt": "Summarize the theory of relativity",
+          "submitted_by": "nightswan"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
