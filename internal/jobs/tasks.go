@@ -2,6 +2,7 @@ package jobs
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/hibiken/asynq"
 	"context"
 	"github.com/Night-Swan/distributed-task-scheduler/internal/db"
@@ -72,8 +73,9 @@ func CallOllama(prompt string) (string, error) {
 func HandleLLMTask(ctx context.Context, t *asynq.Task) error {
 	var payload LLMPayload
 	err := json.Unmarshal(t.Payload(), &payload)
+	// If payload is invalid, skip retrying and mark the job as failed
 	if err != nil {
-		return err
+		return fmt.Errorf("invalid payload, skipping retry: %w", asynq.SkipRetry)
 	}
 
 	// Update job to running status
@@ -84,11 +86,17 @@ func HandleLLMTask(ctx context.Context, t *asynq.Task) error {
 	// Call Ollama and get the response
 	response, err := CallOllama(payload.Prompt)
 	if err != nil {
+		if dbErr := db.UpdateJobFailed(payload.JobID, err.Error()); dbErr != nil {
+			fmt.Printf("failed to update job status: %v\n", dbErr)
+		}
 		return err
 	}
 
 	// Update job to completed status with the LLM response
 	if err := db.UpdateJobFinished(payload.JobID, response); err != nil {
+		if dbErr := db.UpdateJobFailed(payload.JobID, err.Error()); dbErr != nil {
+			fmt.Printf("failed to update job status: %v\n", dbErr)
+		}
 		return err
 	}
 
