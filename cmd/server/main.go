@@ -6,6 +6,11 @@ import (
 	"github.com/Night-Swan/distributed-task-scheduler/internal/api"
 	"github.com/Night-Swan/distributed-task-scheduler/internal/db"
 	"github.com/Night-Swan/distributed-task-scheduler/internal/jobs"
+	"time"
+	"os"
+	"os/signal"
+	"syscall"
+	"fmt"
 )
 
 func main() {
@@ -16,7 +21,15 @@ func main() {
 
 	// Create Asynq client and server
 	asynqClient := asynq.NewClient(asynq.RedisClientOpt{Addr: "localhost:6379"})
-	asynqServer := asynq.NewServer(asynq.RedisClientOpt{Addr: "localhost:6379"}, asynq.Config{})
+	asynqServer := asynq.NewServer(asynq.RedisClientOpt{Addr: "localhost:6379"}, asynq.Config{
+    Concurrency: 10,
+    RetryDelayFunc: func(n int, e error, t *asynq.Task) time.Duration {
+        return time.Duration(5^n) * time.Second
+    },
+    Queues: map[string]int{
+        "default": 1,
+    },
+	})
 
 	// Create API handler with Asynq client
 	handler := &api.Handler{AsynqClient: asynqClient}
@@ -37,8 +50,22 @@ func main() {
 	router.GET("/jobs/:id", handler.GetJob)
 
 	// Start the HTTP server
-	if err := router.Run(":8080"); err != nil {
-		panic(err)
-	}
+	go func() {
+		if err := router.Run(":8080"); err != nil {
+			panic(err)
+		}
+	}()
+
+	// Wait for shutdown signal
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
+	<-quit
+
+	// Shutdown cleanly
+	fmt.Println("Shutting down...")
+	asynqServer.Shutdown()
+	db.Pool.Close()
+	fmt.Println("Done")
+	
 }
 
