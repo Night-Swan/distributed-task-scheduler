@@ -21,3 +21,17 @@ services:
     command: --redis-addr=redis:6379
     depends_on:
       - redis
+
+  whisper:
+    image: fedirz/faster-whisper-server:latest-cuda
+    ports:
+      - "8000:8000"
+    environment:
+      - WHISPER__MODEL=Systran/faster-whisper-small
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
