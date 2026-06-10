@@ -114,6 +114,47 @@ func (h *Handler) CreateTranscriptionJob(c *gin.Context) {
 		c.JSON(200, CreateJobResponse{JobID: jobID})
 }	
 
+func (h *Handler) CreatePDFJob(c *gin.Context) {
+		file, err := c.FormFile("file")
+		if err != nil {
+			c.JSON(400, gin.H{"error": "File is required"})
+			return
+		}
+		submittedBy := c.PostForm("submitted_by")
+		if submittedBy == "" {
+			c.JSON(400, gin.H{"error": "submitted_by is required"})
+			return
+		}
+		// Save the uploaded file to a temporary location
+		tempFilePath := "uploads/" + file.Filename
+		if err := c.SaveUploadedFile(file, tempFilePath); err != nil {
+			c.JSON(500, gin.H{"error": "Failed to save uploaded file"})
+			return
+		}
+
+		payload, err := json.Marshal(map[string]string{"file_path": tempFilePath})
+		if err != nil {
+			c.JSON(500, gin.H{"error": "Failed to marshal payload"})
+			return
+		}
+		jobID, err := db.CreateJob(submittedBy, "pdf_processing", payload)
+		if err != nil {
+			c.JSON(500, gin.H{"error": "Failed to create job"})
+			return
+		}
+
+		task, err := jobs.NewPDFTask(jobID, tempFilePath)
+		if err != nil {
+			c.JSON(500, gin.H{"error": "Failed to create PDF processing task"})
+			return
+		}
+		if _, err := h.AsynqClient.Enqueue(task); err != nil {
+			c.JSON(500, gin.H{"error": "Failed to enqueue PDF processing task"})
+			return
+		}
+		c.JSON(200, CreateJobResponse{JobID: jobID})
+}		
+
 func (h *Handler) GetJob(c *gin.Context) {
 	jobID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {

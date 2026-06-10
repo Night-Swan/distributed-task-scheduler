@@ -39,6 +39,7 @@ func main() {
 	mux.HandleFunc(jobs.TypeLLMPrompt, jobs.HandleLLMTask)
 	mux.HandleFunc(jobs.TypeTranscription, jobs.HandleTranscriptionTask)
 	mux.HandleFunc(jobs.TypeEmbedding, jobs.HandleEmbeddingTask)
+	mux.HandleFunc(jobs.TypePDFProcessing, jobs.HandlePDFTask)
 
 	// Run Asynq server in background with Goroutine concurrency
 	go func() {
@@ -51,6 +52,7 @@ func main() {
 	router.POST("/jobs", handler.CreateJob)
 	router.GET("/jobs/:id", handler.GetJob)
 	router.POST("/jobs/transcription", handler.CreateTranscriptionJob)
+	router.POST("/jobs/pdf", handler.CreatePDFJob)
 
 	// Start the HTTP server
 	go func() {

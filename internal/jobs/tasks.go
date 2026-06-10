@@ -12,6 +12,7 @@ import (
 	"io"
 	"mime/multipart"
 	"path/filepath"
+	"os/exec"
 )
 
 const TypeLLMPrompt = "llm_prompt"
@@ -54,6 +55,15 @@ type EmbeddingPayload struct {
 type EmbeddingResponse struct {
     Embedding []float64 `json:"embedding"`
 }
+
+const TypePDFProcessing = "pdf_processing"
+
+type PDFPayload struct {
+	JobID int64 `json:"job_id"`
+	FilePath string `json:"file_path"`
+}
+
+
 
 func NewLLMTask(jobID int64, prompt string) (*asynq.Task, error) {
 	// Create a new LLM task payload
@@ -282,6 +292,64 @@ func HandleEmbeddingTask(ctx context.Context, t *asynq.Task) error {
 
 	// Update job to completed status with the embedding result
 	if err := db.UpdateJobFinished(payload.JobID, string(resultBytes)); err != nil {
+		if dbErr := db.UpdateJobFailed(payload.JobID, err.Error()); dbErr != nil {
+			fmt.Printf("failed to update job status: %v\n", dbErr)
+		}
+		return err
+	}
+
+	return nil
+}
+
+func CallPDFProcessing(filePath string) (string, error) {
+	out, err := exec.Command("pdftotext", filePath, "-").Output()
+	if err != nil {
+		return "", err
+	}
+	text := string(out)
+	return text, nil	
+}
+
+func NewPDFTask(jobID int64, filePath string) (*asynq.Task, error) {
+	payload := PDFPayload{
+		JobID: jobID,
+		FilePath: filePath,
+	}
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return nil, err
+	}
+	return asynq.NewTask(TypePDFProcessing, data), nil
+}
+
+func HandlePDFTask(ctx context.Context, t *asynq.Task) error {
+	var payload PDFPayload
+	err := json.Unmarshal(t.Payload(), &payload)	
+	if err != nil {
+		return fmt.Errorf("invalid payload, skipping retry: %w", asynq.SkipRetry)
+	}
+
+	if err := db.UpdateJobRunning(payload.JobID); err != nil {
+		return err
+	}
+
+	text, err := CallPDFProcessing(payload.FilePath)
+	if err != nil {
+		if dbErr := db.UpdateJobFailed(payload.JobID, err.Error()); dbErr != nil {
+			fmt.Printf("failed to update job status: %v\n", dbErr)
+		}
+		return err
+	}
+
+	summary, err := CallOllama("Summarize the following text:\n" + text)
+	if err != nil {
+		if dbErr := db.UpdateJobFailed(payload.JobID, err.Error()); dbErr != nil {
+			fmt.Printf("failed to update job status: %v\n", dbErr)
+		}
+		return err
+	}
+
+	if err := db.UpdateJobFinished(payload.JobID, summary); err != nil {
 		if dbErr := db.UpdateJobFailed(payload.JobID, err.Error()); dbErr != nil {
 			fmt.Printf("failed to update job status: %v\n", dbErr)
 		}
