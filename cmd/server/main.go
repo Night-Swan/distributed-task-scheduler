@@ -10,14 +10,21 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"fmt"
+	"log/slog"
 )
 
 func main() {
+
+	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		Level: slog.LevelInfo,
+	})))
+	
 	// Connect to the database
 	if err := db.Connect(); err != nil {
 		panic(err)
 	}
+
+	slog.Info("database connected")
 
 	// Create Asynq client and server
 	asynqClient := asynq.NewClient(asynq.RedisClientOpt{Addr: "localhost:6379"})
@@ -40,6 +47,7 @@ func main() {
 	mux.HandleFunc(jobs.TypeTranscription, jobs.HandleTranscriptionTask)
 	mux.HandleFunc(jobs.TypeEmbedding, jobs.HandleEmbeddingTask)
 	mux.HandleFunc(jobs.TypePDFProcessing, jobs.HandlePDFTask)
+	slog.Info("worker started", "concurrency", 10)
 
 	// Run Asynq server in background with Goroutine concurrency
 	go func() {
@@ -53,6 +61,7 @@ func main() {
 	router.GET("/jobs/:id", handler.GetJob)
 	router.POST("/jobs/transcription", handler.CreateTranscriptionJob)
 	router.POST("/jobs/pdf", handler.CreatePDFJob)
+	slog.Info("API server starting", "port", "8080")
 
 	// Start the HTTP server
 	go func() {
@@ -67,10 +76,10 @@ func main() {
 	<-quit
 
 	// Shutdown cleanly
-	fmt.Println("Shutting down...")
+	slog.Info("Shutting down...")
 	asynqServer.Shutdown()
 	db.Pool.Close()
-	fmt.Println("Done")
+	slog.Info("Done")
 	
 }
 

@@ -13,6 +13,7 @@ import (
 	"mime/multipart"
 	"path/filepath"
 	"os/exec"
+	"log/slog"
 )
 
 const TypeLLMPrompt = "llm_prompt"
@@ -161,12 +162,13 @@ func HandleLLMTask(ctx context.Context, t *asynq.Task) error {
 	if err := db.UpdateJobRunning(payload.JobID); err != nil {
 		return err
 	}
+	slog.Info("processing job", "job_id", payload.JobID, "job_type", "llm_prompt")
 
 	// Call Ollama and get the response
 	response, err := CallOllama(payload.Prompt)
 	if err != nil {
 		if dbErr := db.UpdateJobFailed(payload.JobID, err.Error()); dbErr != nil {
-			fmt.Printf("failed to update job status: %v\n", dbErr)
+			slog.Error("failed to update job status", "error", dbErr)
 		}
 		return err
 	}
@@ -174,10 +176,12 @@ func HandleLLMTask(ctx context.Context, t *asynq.Task) error {
 	// Update job to completed status with the LLM response
 	if err := db.UpdateJobFinished(payload.JobID, response); err != nil {
 		if dbErr := db.UpdateJobFailed(payload.JobID, err.Error()); dbErr != nil {
-			fmt.Printf("failed to update job status: %v\n", dbErr)
+			slog.Error("failed to update job status", "error", dbErr)
 		}
 		return err
 	}
+
+	slog.Info("job completed", "job_id", payload.JobID)
 
 	return nil
 }
@@ -199,6 +203,7 @@ func HandleTranscriptionTask(ctx context.Context, t *asynq.Task) error {
 	var payload TranscriptionPayload
 	err := json.Unmarshal(t.Payload(), &payload)	
 	if err != nil {
+		slog.Error("invalid payload, skipping retry", "error", err)
 		return fmt.Errorf("invalid payload, skipping retry: %w", asynq.SkipRetry)
 	}
 
@@ -207,10 +212,11 @@ func HandleTranscriptionTask(ctx context.Context, t *asynq.Task) error {
 	}
 
 	//placeholder for actual transcription logic, replace with real implementation
+	slog.Info("processing job", "job_id", payload.JobID, "job_type", "transcription")	
 	transcriptionResult, err := CallWhisper(payload.FilePath)
 	if err != nil {
 		if dbErr := db.UpdateJobFailed(payload.JobID, err.Error()); dbErr != nil {
-			fmt.Printf("failed to update job status: %v\n", dbErr)
+			slog.Error("failed to update job status", "error", dbErr)
 		}
 		return err
 	}
@@ -218,11 +224,12 @@ func HandleTranscriptionTask(ctx context.Context, t *asynq.Task) error {
 	// Update job to completed status with the transcription result
 	if err := db.UpdateJobFinished(payload.JobID, transcriptionResult); err != nil {
 		if dbErr := db.UpdateJobFailed(payload.JobID, err.Error()); dbErr != nil {
-			fmt.Printf("failed to update job status: %v\n", dbErr)
+			slog.Error("failed to update job status", "error", dbErr)
 		}
 		return err
 	}
 
+	slog.Info("job completed", "job_id", payload.JobID)	
 	return nil
 }
 
@@ -266,6 +273,7 @@ func HandleEmbeddingTask(ctx context.Context, t *asynq.Task) error {
 	var payload EmbeddingPayload
 	err := json.Unmarshal(t.Payload(), &payload)	
 	if err != nil {
+		slog.Error("invalid payload, skipping retry", "error", err)	
 		return fmt.Errorf("invalid payload, skipping retry: %w", asynq.SkipRetry)
 	}
 
@@ -273,11 +281,12 @@ func HandleEmbeddingTask(ctx context.Context, t *asynq.Task) error {
 		return err
 	}
 
+	slog.Info("processing job", "job_id", payload.JobID, "job_type", "embedding")
 	//placeholder for actual embedding generation logic, replace with real implementation
 	embeddingResult, err := CallEmbeddingTask(payload.Text)
 	if err != nil {
 		if dbErr := db.UpdateJobFailed(payload.JobID, err.Error()); dbErr != nil {
-			fmt.Printf("failed to update job status: %v\n", dbErr)
+			slog.Error("failed to update job status", "error", dbErr)
 		}
 		return err
 	}
@@ -285,7 +294,7 @@ func HandleEmbeddingTask(ctx context.Context, t *asynq.Task) error {
 	resultBytes, err := json.Marshal(embeddingResult)
 	if err != nil {
 		if dbErr := db.UpdateJobFailed(payload.JobID, err.Error()); dbErr != nil {
-			fmt.Printf("failed to update job status: %v\n", dbErr)
+			slog.Error("failed to update job status", "error", dbErr)
 		}
 		return err
 	}
@@ -293,11 +302,11 @@ func HandleEmbeddingTask(ctx context.Context, t *asynq.Task) error {
 	// Update job to completed status with the embedding result
 	if err := db.UpdateJobFinished(payload.JobID, string(resultBytes)); err != nil {
 		if dbErr := db.UpdateJobFailed(payload.JobID, err.Error()); dbErr != nil {
-			fmt.Printf("failed to update job status: %v\n", dbErr)
+			slog.Error("failed to update job status", "error", dbErr)
 		}
 		return err
 	}
-
+	slog.Info("job completed", "job_id", payload.JobID)
 	return nil
 }
 
@@ -326,6 +335,7 @@ func HandlePDFTask(ctx context.Context, t *asynq.Task) error {
 	var payload PDFPayload
 	err := json.Unmarshal(t.Payload(), &payload)	
 	if err != nil {
+		slog.Error("invalid payload, skipping retry", "error", err)		
 		return fmt.Errorf("invalid payload, skipping retry: %w", asynq.SkipRetry)
 	}
 
@@ -333,10 +343,11 @@ func HandlePDFTask(ctx context.Context, t *asynq.Task) error {
 		return err
 	}
 
+	slog.Info("processing job", "job_id", payload.JobID, "job_type", "pdf_processing")
 	text, err := CallPDFProcessing(payload.FilePath)
 	if err != nil {
 		if dbErr := db.UpdateJobFailed(payload.JobID, err.Error()); dbErr != nil {
-			fmt.Printf("failed to update job status: %v\n", dbErr)
+			slog.Error("failed to update job status", "error", dbErr)
 		}
 		return err
 	}
@@ -344,17 +355,17 @@ func HandlePDFTask(ctx context.Context, t *asynq.Task) error {
 	summary, err := CallOllama("Summarize the following text:\n" + text)
 	if err != nil {
 		if dbErr := db.UpdateJobFailed(payload.JobID, err.Error()); dbErr != nil {
-			fmt.Printf("failed to update job status: %v\n", dbErr)
+			slog.Error("failed to update job status", "error", dbErr)
 		}
 		return err
 	}
 
 	if err := db.UpdateJobFinished(payload.JobID, summary); err != nil {
 		if dbErr := db.UpdateJobFailed(payload.JobID, err.Error()); dbErr != nil {
-			fmt.Printf("failed to update job status: %v\n", dbErr)
+			slog.Error("failed to update job status", "error", dbErr)
 		}
 		return err
 	}
-
+	slog.Info("job completed", "job_id", payload.JobID)
 	return nil
 }
