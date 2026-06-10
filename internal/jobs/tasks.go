@@ -14,7 +14,7 @@ import (
 	"path/filepath"
 )
 
-const TypeLLMPrompt = "llm:prompt"
+const TypeLLMPrompt = "llm_prompt"
 
 type LLMPayload struct {
     JobID  int64  `json:"job_id"`
@@ -32,7 +32,7 @@ type OllamaResponse struct {
     Done     bool   `json:"done"`
 }
 
-const TypeTranscription = "transcription:audio"
+const TypeTranscription = "transcription"
 
 type TranscriptionPayload struct {
     JobID    int64  `json:"job_id"`
@@ -43,6 +43,17 @@ type WhisperResponse struct {
     Text string `json:"text"`
 }
 
+
+const TypeEmbedding = "embedding"
+
+type EmbeddingPayload struct {
+	JobID int64 `json:"job_id"`
+	Text  string `json:"text"`
+}
+
+type EmbeddingResponse struct {
+    Embedding []float64 `json:"embedding"`
+}
 
 func NewLLMTask(jobID int64, prompt string) (*asynq.Task, error) {
 	// Create a new LLM task payload
@@ -205,3 +216,77 @@ func HandleTranscriptionTask(ctx context.Context, t *asynq.Task) error {
 	return nil
 }
 
+func CallEmbeddingTask(text string) ([]float64, error) {
+    body, err := json.Marshal(OllamaRequest{
+        Model:  "nomic-embed-text",
+        Prompt: text,
+        Stream: false,
+    })
+    if err != nil {
+        return nil, err
+    }
+
+    resp, err := http.Post("http://localhost:11434/api/embeddings", "application/json", bytes.NewBuffer(body))
+    if err != nil {
+        return nil, err
+    }
+    defer resp.Body.Close()
+
+    var ollamaResp EmbeddingResponse
+    if err := json.NewDecoder(resp.Body).Decode(&ollamaResp); err != nil {
+        return nil, err
+    }
+
+    return ollamaResp.Embedding, nil
+}
+
+func NewEmbeddingTask(jobID int64, text string) (*asynq.Task, error) {
+	payload := EmbeddingPayload{
+		JobID: jobID,
+		Text:  text,
+	}
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return nil, err
+	}
+	return asynq.NewTask(TypeEmbedding, data), nil
+}
+
+func HandleEmbeddingTask(ctx context.Context, t *asynq.Task) error {
+	var payload EmbeddingPayload
+	err := json.Unmarshal(t.Payload(), &payload)	
+	if err != nil {
+		return fmt.Errorf("invalid payload, skipping retry: %w", asynq.SkipRetry)
+	}
+
+	if err := db.UpdateJobRunning(payload.JobID); err != nil {
+		return err
+	}
+
+	//placeholder for actual embedding generation logic, replace with real implementation
+	embeddingResult, err := CallEmbeddingTask(payload.Text)
+	if err != nil {
+		if dbErr := db.UpdateJobFailed(payload.JobID, err.Error()); dbErr != nil {
+			fmt.Printf("failed to update job status: %v\n", dbErr)
+		}
+		return err
+	}
+
+	resultBytes, err := json.Marshal(embeddingResult)
+	if err != nil {
+		if dbErr := db.UpdateJobFailed(payload.JobID, err.Error()); dbErr != nil {
+			fmt.Printf("failed to update job status: %v\n", dbErr)
+		}
+		return err
+	}
+
+	// Update job to completed status with the embedding result
+	if err := db.UpdateJobFinished(payload.JobID, string(resultBytes)); err != nil {
+		if dbErr := db.UpdateJobFailed(payload.JobID, err.Error()); dbErr != nil {
+			fmt.Printf("failed to update job status: %v\n", dbErr)
+		}
+		return err
+	}
+
+	return nil
+}

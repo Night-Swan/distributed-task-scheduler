@@ -38,6 +38,7 @@ func main() {
 	mux := asynq.NewServeMux()
 	mux.HandleFunc(jobs.TypeLLMPrompt, jobs.HandleLLMTask)
 	mux.HandleFunc(jobs.TypeTranscription, jobs.HandleTranscriptionTask)
+	mux.HandleFunc(jobs.TypeEmbedding, jobs.HandleEmbeddingTask)
 
 	// Run Asynq server in background with Goroutine concurrency
 	go func() {

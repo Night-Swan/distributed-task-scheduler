@@ -43,13 +43,29 @@ func (h *Handler) CreateJob(c *gin.Context) {
 		c.JSON(500, gin.H{"error": "Failed to create job"})
 		return
 	}
-	task, err := jobs.NewLLMTask(jobID, req.Prompt)
-	if err != nil {
-		c.JSON(500, gin.H{"error": "Failed to create task"})
-		return
-	}
-	if _, err := h.AsynqClient.Enqueue(task); err != nil {
-		c.JSON(500, gin.H{"error": "Failed to enqueue task"})
+
+	if req.JobType == jobs.TypeLLMPrompt {
+		task, err := jobs.NewLLMTask(jobID, req.Prompt)
+		if err != nil {
+			c.JSON(500, gin.H{"error": "Failed to create task"})
+			return
+		}
+		if _, err := h.AsynqClient.Enqueue(task); err != nil {
+			c.JSON(500, gin.H{"error": "Failed to enqueue task"})
+			return
+		}
+	} else if req.JobType == jobs.TypeEmbedding {
+		task, err := jobs.NewEmbeddingTask(jobID, req.Prompt)
+		if err != nil {
+			c.JSON(500, gin.H{"error": "Failed to create task"})
+			return
+		}
+		if _, err := h.AsynqClient.Enqueue(task); err != nil {
+			c.JSON(500, gin.H{"error": "Failed to enqueue task"})
+			return
+		}
+	} else {
+		c.JSON(400, gin.H{"error": "Unsupported job type"})
 		return
 	}
 	c.JSON(200, CreateJobResponse{JobID: jobID})
