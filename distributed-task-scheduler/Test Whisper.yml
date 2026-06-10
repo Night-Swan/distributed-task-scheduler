@@ -1,0 +1,15 @@
+info:
+  name: Test Whisper
+  type: http
+  seq: 3
+
+http:
+  method: POST
+  url: http://localhost:8000/v1/audio/transcriptions
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

@@ -37,6 +37,7 @@ func main() {
 	// Start Asynq server in a separate goroutine
 	mux := asynq.NewServeMux()
 	mux.HandleFunc(jobs.TypeLLMPrompt, jobs.HandleLLMTask)
+	mux.HandleFunc(jobs.TypeTranscription, jobs.HandleTranscriptionTask)
 
 	// Run Asynq server in background with Goroutine concurrency
 	go func() {
@@ -48,6 +49,7 @@ func main() {
 	router := gin.Default()
 	router.POST("/jobs", handler.CreateJob)
 	router.GET("/jobs/:id", handler.GetJob)
+	router.POST("/jobs/transcription", handler.CreateTranscriptionJob)
 
 	// Start the HTTP server
 	go func() {
