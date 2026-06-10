@@ -57,7 +57,6 @@ func CreateJob(submittedBy string, jobType string, payload json.RawMessage) (int
 		RETURNING id
 	`, jobType, payload, submittedBy).Scan(&id)
 	if err != nil {
-		fmt.Println("CreateJob error:", err)
 		return 0, err
 	}
 	return id, nil
