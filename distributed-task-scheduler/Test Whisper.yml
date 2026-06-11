@@ -6,6 +6,17 @@ info:
 http:
   method: POST
   url: http://localhost:8000/v1/audio/transcriptions
+  body:
+    type: multipart-form
+    data:
+      - name: file
+        type: file
+        value:
+          - /home/nightswan/test.wav
+        contentType: audio/wav
+      - name: model
+        type: text
+        value: Systran/faster-whisper-small
   auth: inherit
 
 settings:

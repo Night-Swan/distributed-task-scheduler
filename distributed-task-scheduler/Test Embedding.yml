@@ -6,6 +6,13 @@ info:
 http:
   method: POST
   url: http://localhost:11434/api/embeddings
+  body:
+    type: json
+    data: |-
+      {
+          "model": "nomic-embed-text",
+          "prompt": "The theory of relativity"
+      }
   auth: inherit
 
 settings:

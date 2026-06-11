@@ -103,3 +103,33 @@ func UpdateJobFailed(id int64, errorMessage string) error {
     `, id, now, errorMessage)
     return err
 }
+
+func GetJobCounts() (map[string]int, error) {
+    rows, err := Pool.Query(context.Background(), `
+        SELECT status, COUNT(*) 
+        FROM jobs 
+        GROUP BY status
+    `)
+    if err != nil {
+        return nil, err
+    }
+    defer rows.Close()
+
+    counts := map[string]int{
+        "pending":   0,
+        "running":   0,
+        "completed": 0,
+        "failed":    0,
+    }
+
+    for rows.Next() {
+        var status string
+        var count int
+        if err := rows.Scan(&status, &count); err != nil {
+            return nil, err
+        }
+        counts[status] = count
+    }
+
+    return counts, nil
+}

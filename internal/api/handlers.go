@@ -7,6 +7,7 @@ import (
 	"github.com/Night-Swan/distributed-task-scheduler/internal/jobs"
 	"strconv"	
 	"encoding/json"
+	"log/slog"
 )
 
 type CreateJobRequest struct {
@@ -22,6 +23,28 @@ type CreateJobResponse struct {
 // Async client for enqueuing tasks into redis
 type Handler struct {
     AsynqClient *asynq.Client
+	AsynqInspector *asynq.Inspector
+}
+
+type QueueMetrics struct {
+    Size      int `json:"size"`
+    Active    int `json:"active"`
+    Pending   int `json:"pending"`
+    Failed    int `json:"failed"`
+    Completed int `json:"completed"`
+}
+
+type JobMetrics struct {
+    Total     int `json:"total"`
+    Pending   int `json:"pending"`
+    Running   int `json:"running"`
+    Completed int `json:"completed"`
+    Failed    int `json:"failed"`
+}
+
+type MetricsResponse struct {
+    Queue QueueMetrics `json:"queue"`
+    Jobs  JobMetrics   `json:"jobs"`
 }
 
 func (h *Handler) CreateJob(c *gin.Context) {
@@ -169,5 +192,35 @@ func (h *Handler) GetJob(c *gin.Context) {
 	c.JSON(200, job)
 }
 
+func (h *Handler) GetMetrics(c *gin.Context) {
+	queueStats, err := h.AsynqInspector.GetQueueInfo("default")
+	if err != nil {
+		slog.Error("failed to get queue stats", "error", err)
+		c.JSON(500, gin.H{"error": "Failed to get queue stats"})
+		return
+	}
+	jobCounts, err := db.GetJobCounts()
+	if err != nil {
+		slog.Error("failed to get queue stats", "error", err)
+		c.JSON(500, gin.H{"error": "Failed to get queue stats"})
+		return
+	}
 
-
+	response := MetricsResponse{
+		Queue: QueueMetrics{
+			Size:      queueStats.Size,
+			Active:    queueStats.Active,
+			Pending:   queueStats.Pending,
+			Failed:    queueStats.Failed,
+			Completed: queueStats.Completed,
+		},
+		Jobs: JobMetrics{
+			Total: 	   jobCounts["pending"] + jobCounts["running"] + jobCounts["completed"] + jobCounts["failed"],
+			Pending:   jobCounts["pending"],
+			Running:   jobCounts["running"],
+			Completed: jobCounts["completed"],
+			Failed:    jobCounts["failed"],
+		},
+	}
+	c.JSON(200, response)
+}

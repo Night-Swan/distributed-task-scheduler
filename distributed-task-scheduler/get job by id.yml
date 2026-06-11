@@ -5,7 +5,7 @@ info:
 
 http:
   method: GET
-  url: ""
+  url: http://localhost:8080/jobs/3
   auth: inherit
 
 settings:

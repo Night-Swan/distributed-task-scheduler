@@ -6,6 +6,14 @@ info:
 http:
   method: POST
   url: http://localhost:8080/jobs
+  body:
+    type: json
+    data: |-
+      {
+          "job_type": "embedding",
+          "prompt": "The theory of relativity",
+          "submitted_by": "nightswan"
+      }
   auth: inherit
 
 settings:

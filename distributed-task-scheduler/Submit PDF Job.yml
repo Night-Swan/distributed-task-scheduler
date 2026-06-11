@@ -5,7 +5,18 @@ info:
 
 http:
   method: POST
-  url: ttp://localhost:8080/jobs/pdf
+  url: http://localhost:8080/jobs/pdf
+  body:
+    type: multipart-form
+    data:
+      - name: file
+        type: file
+        value:
+          - /home/nightswan/Downloads/CitationList.pdf
+        contentType: application/pdf
+      - name: submitted_by
+        type: text
+        value: nightswan
   auth: inherit
 
 settings:

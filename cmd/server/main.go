@@ -38,8 +38,9 @@ func main() {
     },
 	})
 
+	inspector := asynq.NewInspector(asynq.RedisClientOpt{Addr: "localhost:6379"})
 	// Create API handler with Asynq client
-	handler := &api.Handler{AsynqClient: asynqClient}
+	handler := &api.Handler{AsynqClient: asynqClient, AsynqInspector: inspector}
 
 	// Start Asynq server in a separate goroutine
 	mux := asynq.NewServeMux()
@@ -61,6 +62,7 @@ func main() {
 	router.GET("/jobs/:id", handler.GetJob)
 	router.POST("/jobs/transcription", handler.CreateTranscriptionJob)
 	router.POST("/jobs/pdf", handler.CreatePDFJob)
+	router.GET("/metrics", handler.GetMetrics)
 	slog.Info("API server starting", "port", "8080")
 
 	// Start the HTTP server
