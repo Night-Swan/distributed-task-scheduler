@@ -29,13 +29,15 @@ func main() {
 	// Create Asynq client and server
 	asynqClient := asynq.NewClient(asynq.RedisClientOpt{Addr: "localhost:6379"})
 	asynqServer := asynq.NewServer(asynq.RedisClientOpt{Addr: "localhost:6379"}, asynq.Config{
-    Concurrency: 10,
-    RetryDelayFunc: func(n int, e error, t *asynq.Task) time.Duration {
-        return time.Duration(5^n) * time.Second
-    },
-    Queues: map[string]int{
-        "default": 1,
-    },
+		Concurrency: 10,
+		RetryDelayFunc: func(n int, e error, t *asynq.Task) time.Duration {
+			return time.Duration(5^n) * time.Second
+		},
+		Queues: map[string]int{
+			"critical": 3,
+			"default":  2,
+			"low":      1,
+		},
 	})
 
 	inspector := asynq.NewInspector(asynq.RedisClientOpt{Addr: "localhost:6379"})

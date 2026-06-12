@@ -47,15 +47,16 @@ type Job struct {
     Result *string `db:"result"`
     SubmittedBy string `db:"submitted_by"`
     JobType string `db:"job_type"`
+    Priority string `db:"priority"`
 }
 
-func CreateJob(submittedBy string, jobType string, payload json.RawMessage) (int64, error) {
+func CreateJob(submittedBy string, jobType string, payload json.RawMessage, priority string) (int64, error) {
 	var id int64
 	err := Pool.QueryRow(context.Background(), `
-		INSERT INTO jobs (job_type, payload, submitted_by)
-		VALUES ($1, $2, $3)
+		INSERT INTO jobs (job_type, payload, submitted_by, priority)
+		VALUES ($1, $2, $3, $4)
 		RETURNING id
-	`, jobType, payload, submittedBy).Scan(&id)
+	`, jobType, payload, submittedBy, priority).Scan(&id)
 	if err != nil {
 		return 0, err
 	}
@@ -65,10 +66,10 @@ func CreateJob(submittedBy string, jobType string, payload json.RawMessage) (int
 func GetJob(id int64) (*Job, error) {
     job := &Job{}
     err := Pool.QueryRow(context.Background(), `
-    SELECT id, status, payload, created_at, finished_at, error_message, result, submitted_by, job_type
+    SELECT id, status, payload, created_at, finished_at, error_message, result, submitted_by, job_type, priority
     FROM jobs
     WHERE id = $1
-    `, id).Scan(&job.ID, &job.Status, &job.Payload, &job.CreatedAt, &job.FinishedAt, &job.ErrorMessage, &job.Result, &job.SubmittedBy, &job.JobType)
+    `, id).Scan(&job.ID, &job.Status, &job.Payload, &job.CreatedAt, &job.FinishedAt, &job.ErrorMessage, &job.Result, &job.SubmittedBy, &job.JobType, &job.Priority )
     if err != nil {
         return nil, err
     }

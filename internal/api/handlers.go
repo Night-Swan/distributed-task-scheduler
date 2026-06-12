@@ -14,6 +14,7 @@ type CreateJobRequest struct {
 	JobType string `json:"job_type"`
 	Prompt string `json:"prompt"`
 	SubmittedBy string `json:"submitted_by"`
+	Priority string `json:"priority"`
 }
 
 type CreateJobResponse struct {
@@ -60,7 +61,7 @@ func (h *Handler) CreateJob(c *gin.Context) {
 		c.JSON(500, gin.H{"error": "Failed to marshal payload"})
 		return
 	}
-	jobID, err := db.CreateJob(req.SubmittedBy, req.JobType, payload)
+	jobID, err := db.CreateJob(req.SubmittedBy, req.JobType, payload, req.Priority)
 
 	if err != nil {
 		c.JSON(500, gin.H{"error": "Failed to create job"})
@@ -73,7 +74,7 @@ func (h *Handler) CreateJob(c *gin.Context) {
 			c.JSON(500, gin.H{"error": "Failed to create task"})
 			return
 		}
-		if _, err := h.AsynqClient.Enqueue(task); err != nil {
+		if _, err := h.AsynqClient.Enqueue(task, asynq.Queue(req.Priority)); err != nil {
 			c.JSON(500, gin.H{"error": "Failed to enqueue task"})
 			return
 		}
@@ -83,7 +84,7 @@ func (h *Handler) CreateJob(c *gin.Context) {
 			c.JSON(500, gin.H{"error": "Failed to create task"})
 			return
 		}
-		if _, err := h.AsynqClient.Enqueue(task); err != nil {
+		if _, err := h.AsynqClient.Enqueue(task, asynq.Queue(req.Priority)); err != nil {
 			c.JSON(500, gin.H{"error": "Failed to enqueue task"})
 			return
 		}
@@ -119,7 +120,12 @@ func (h *Handler) CreateTranscriptionJob(c *gin.Context) {
 			c.JSON(500, gin.H{"error": "Failed to marshal payload"})
 			return
 		}
-		jobID, err := db.CreateJob(submittedBy, "transcription", payload)
+
+		priority := c.PostForm("priority")
+		if priority == "" {
+			priority = "default"
+		}
+		jobID, err := db.CreateJob(submittedBy, "transcription", payload, priority)
 		if err != nil {
 			c.JSON(500, gin.H{"error": "Failed to create job"})
 			return
@@ -130,7 +136,7 @@ func (h *Handler) CreateTranscriptionJob(c *gin.Context) {
 			c.JSON(500, gin.H{"error": "Failed to create transcription task"})
 			return
 		}
-		if _, err := h.AsynqClient.Enqueue(task); err != nil {
+		if _, err := h.AsynqClient.Enqueue(task, asynq.Queue(priority)); err != nil {
 			c.JSON(500, gin.H{"error": "Failed to enqueue transcription task"})
 			return
 		}
@@ -160,7 +166,11 @@ func (h *Handler) CreatePDFJob(c *gin.Context) {
 			c.JSON(500, gin.H{"error": "Failed to marshal payload"})
 			return
 		}
-		jobID, err := db.CreateJob(submittedBy, "pdf_processing", payload)
+		priority := c.PostForm("priority")
+		if priority == "" {
+			priority = "default"
+		}
+		jobID, err := db.CreateJob(submittedBy, "pdf_processing", payload, priority)
 		if err != nil {
 			c.JSON(500, gin.H{"error": "Failed to create job"})
 			return
@@ -171,7 +181,7 @@ func (h *Handler) CreatePDFJob(c *gin.Context) {
 			c.JSON(500, gin.H{"error": "Failed to create PDF processing task"})
 			return
 		}
-		if _, err := h.AsynqClient.Enqueue(task); err != nil {
+		if _, err := h.AsynqClient.Enqueue(task, asynq.Queue(priority)); err != nil {
 			c.JSON(500, gin.H{"error": "Failed to enqueue PDF processing task"})
 			return
 		}
