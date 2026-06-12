@@ -12,5 +12,5 @@ CREATE TABLE jobs (
     result TEXT DEFAULT NULL,
     submitted_by VARCHAR(255) NOT NULL,
     job_type job_type NOT NULL,
-    job_priority job_priority NOT NULL DEFAULT 'default'
+    priority job_priority NOT NULL DEFAULT 'default'
 );
