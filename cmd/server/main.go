@@ -60,6 +60,7 @@ func main() {
 	}()
 	// Set up Gin router and API routes
 	router := gin.Default()
+	router.Use(api.RateLimitMiddleware())
 	router.POST("/jobs", handler.CreateJob)
 	router.GET("/jobs/:id", handler.GetJob)
 	router.POST("/jobs/transcription", handler.CreateTranscriptionJob)
