@@ -23,6 +23,7 @@ These jobs are processed through local models which are Ollama and Whisper witho
 4. Gin over Echo/Chi because of its minimal and fast HTTP framework with excellent middleware support and the largest Go web framework community.
 
 ## Project Structure
+```
 ├── cmd/server/main.go          # Entry point — wires everything together and starts the server
 ├── internal/
 │   ├── api/
@@ -39,6 +40,7 @@ These jobs are processed through local models which are Ollama and Whisper witho
 ├── docker-compose.yml          # Infrastructure — Redis, PostgreSQL, Asynqmon, Whisper
 ├── .env.example                # Template for required environment variables
 └── README.md
+```
 
 ## Prerequisites
 1. Go (version 1.22 or above): https://go.dev/doc/install
