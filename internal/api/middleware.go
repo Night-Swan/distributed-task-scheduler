@@ -5,6 +5,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"sync"
 	"time"
+    "os"
 )
 
 var (
@@ -25,6 +26,10 @@ func getLimiter(ip string) *rate.Limiter {
 
 func RateLimitMiddleware() gin.HandlerFunc {
     return func(c *gin.Context) {
+        if os.Getenv("DISABLE_RATE_LIMIT") == "true" {
+            c.Next()
+            return
+        }
         limiter := getLimiter(c.ClientIP())
         if !limiter.Allow() {
             c.JSON(429, gin.H{"error": "Too many requests"})
